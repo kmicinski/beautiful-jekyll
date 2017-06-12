@@ -16,7 +16,7 @@ This paper has a really nice and useful result, if you're used to writing abstra
  - Outlines a simple implementation strategy for doing so that uses off-the-shelf technology from AAM.
 
 This paper relies on understanding the story of [Abstracting Abstract Machines](http://matt.might.net/papers/vanhorn2010abstract.pdf). I think this paper is fairly simple to read if you understand that story, but if you don't I think it would be confusing. (Indeed, the first time I read this paper I was still first beginning to understand how AAM really worked).
- 
+
 ## A few important prerequisite facts from AAM
 
 A few important reminders about AAM this paper uses..
@@ -55,8 +55,53 @@ assert(f (+1) > 0);
 
 Using this allocator, and assuming we model integers with the sign domain, this allocator would result in saying that f (-1) could be both positive *and* negative, breakign the assertion. By the way, these examples with assertions are really helpful for me to understand how this stuff works.
 
+#### Concrete evaluation 
+
 To recover concrete evaluation, you would keep adding more stuff into the heap. The way to do this is to have addresses be the natural numbers and to allocate based on the number of things in the heap (which emulates getting the next index in an arbitrarily long array):
 
     alloc(state) = |state.store|
 
 Building abstract machines in AAM is all about playing around with this allocation function. By the way, the codomain of the allocation function defines the type of locations in the heap.
+
+#### Call--Return precision
+
+Our previous abstract interpretation example conflated calls and returns. For example, there is no way that a negative value could flow back into the point f (+1), since +1 is (obviously) positive. However, typical semantics for AAM do just this. Why do they do this? Because they heap allocate contexts (or "continuations" or "stacks" in my terms). Originally, AAM did this because stacks must be finite: an infinte stack would mean a machine that ran for infinite time, and that would be obviosly bad. The first approaches to AAM used a CPS converted semantics and used the same allocator for continuations as they did for the value allocator. But this is bad, because it means we lose precision for continuations in the same way that we lose precision for values.
+
+The crux of the issue is in identifying that we need to add more precision to continuations, but not values. In fact, we want *perfect* precision for continuations. This will happen through the tricky use of an allocation function I'll describe. The genius observation is that we can cook up a finite address to use for calls and returns such that we still get perfect call return precision. It's really surprising to me.
+
+# Notes
+
+## Section 2
+
+Section two introduces normal (concrete) evaluation of programs in ANF. ANF is a fairly straigtforward translation. I always think of it as bytecode. For example, in ANF:
+
+    (x1 + x2) * (x1 - x3)
+
+would be written as:
+
+    let r1 = x1 + x2 in
+    let r2 = x1 - x3 in
+    r1 * r2
+
+#### Trick: allocate values and continuations separately
+
+Here's one trick that abstract interpretation people use I didn't know about: if you want to add precision to one part of your semantics, allocate for it separately. This could mean that you have a separate store for it, or you could take your store as the union of two kinds of addresses. The observation here is that we *know* we need to add more precision for continuations, because they are the thing that conflates calls and returns.
+
+The paper presents this pretty plainly, but I think this is a key part of the issue: we need to have more precision for continuations, so change the type of addresses for continuations. Then, allocate for them in a way that lets us add precision.
+
+As is typical, values are allocated using a "value allocator" with the signature:
+
+    alloc : Var x Store^ -> Addr^
+
+(I write `Sigma^` to indicate it's an abstract store.)
+And continuations are allocated using a special continuation allocator:
+
+    allock : Sigma^ x Exp x Env^ x Store^ 
+
+Frankly, I never would have thought of this, but it mirrors a trick I've seen used in this [excellent paper on object sensitivity](https://yanniss.github.io/typesens-popl11.pdf). There, they realize that you need to allocate for *objects* in a special way. Here, the authors realize you need to allocate *continuations* in a special way.
+
+(I've just said what the type of the allocator is, not what its implementation is yet.)
+
+## Terms
+- "administrative normal form"
+- "direct style" vs "continuation-passing style".
