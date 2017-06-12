@@ -76,10 +76,16 @@ translate(shift k in e) = \k. translate(e) (\x. x) [ k |-> \a k'. k' (k a) ]
 
 Read in better english this rule says:
 
-"Translate `shift k in e` as: "Give me a continuation you want me to run after my result. Using the identity continuation, run the following expression: e, where every occurrence of k in e has been replaced by \a k'. k' (k a)."
+"Translate `shift k in e` as: "Give me a continuation you want me to run after my result. Using the identity continuation, run the following expression: e, where every occurrence of k in e has been replaced by `\a k'. k' (k a).`"
 
 Note that, because the identity is used as the continuation passed into the translated expression, if (for example) `e` doesn't contain any occurrences of `k`, then the continuation "jumps" in a non local way back up to the top. This is where reset comes in, which I discuss next.
 
 #### Defining reset
 
-tba..
+```
+translate(reset e) = \k. k (translate(e) (\x. x))
+```
+
+This *delimits* the use of continuations in `e`. Passing the identity block `\x. x` to the translation of `e` means that--at worst--e could escape up to the `reset`. Consider what would happen in the `raise` example above, you would never be able to access the continuation `k` since it gets walled off by the identity continuation being passed in.
+
+Also note that these things nest.
