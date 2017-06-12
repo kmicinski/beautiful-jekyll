@@ -1,6 +1,10 @@
 ---
 title: Abstracting control
-tags: programming-languages, racket, scheme, control
+tags: 
+- programming-languages
+- racket
+- scheme
+- higher-order-control
 ---
 
 Paper link: http://citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.43.8753
