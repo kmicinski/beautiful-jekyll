@@ -1,0 +1,61 @@
+---
+title: Pushdown Control-Flow Analysis for Free
+tags:
+ - scheme
+ - "programming-languages"
+ - "program-analysis"
+ - "pushdown"
+ - "control-flow-analysis"
+---
+
+Today I'm summarizing the results of a paper I've read a few times: [Pushdown for Free](https://michaeldadams.org/papers/p4f/pushdown-for-free.pdf). This paper is one of a few in Tom Gilray's dissertation.
+
+This paper has a really nice and useful result, if you're used to writing abstract interpreters in the AAM style. It:
+ - Gives perfect call-return ("pushdown") precision with of no greater (big-O) complexity than without.
+ - Outlines a simple implementation strategy for doing so that uses off-the-shelf technology from AAM.
+
+This paper relies on understanding the story of [Abstracting Abstract Machines](http://matt.might.net/papers/vanhorn2010abstract.pdf). I think this paper is fairly simple to read if you understand that story, but if you don't I think it would be confusing. (Indeed, the first time I read this paper I was still first beginning to understand how AAM really worked).
+ 
+## A few important prerequisite facts from AAM
+
+A few important reminders about AAM this paper uses..
+
+#### Allocators
+
+In the following I leave a lot of things hazy: I don't give an actual semantics I'm talking about, but I refer to something like Java. I don't give a formal definition of machine state, the join operator, etc...
+
+The story in AAM is that you can massage a traditional abstract machine semantics so that:
+  1. Everything redirects through the a store (or heap).
+  2. That heap is made finite (by simply arbitrarily choosing its range to be a finite set of addresses)
+    - For exmaple, a typical heap address space will be a bunch of object IDs or pointers in the case of C. You allocate more and more as the program runs. In AAM you would instead use something like the program label to create new objects.
+  3. When updating the heap, values are joined.
+  4. Evaluation of the transition system for the abstract machine's semantics is lifted to work with a nondeterministic set of states.
+
+You need to know this story because this paper is all about picking the right allocator to get call-return precision. Precision and scalability in AAM is all about choosing this allocator to be right. The allocator says when to conflate things or not. Note that you can choose any allocator you want and get a correct result, but if you want the abstract interpreter to terminiate you need a finite number of addresses.
+
+Just as a regular semantics for a programming language (like Java) will allocate new pointers in the heap as it generates new objects, the AAM semantics generate new pointers too. The difference is that there will only ever be a finite number of them, so things get "smushed together." This happens by means of a join operator on abstract values. One example for objects might be:
+
+    l1: method void m(x) {
+    l2:   Integer o = x;
+    l3:   m(x+1);
+    l4: }
+
+If we ran this program in Java, it would run forever. Clearly, an abstract analyzer of this program should not run forever. Instead, it will begin to execute `m` and will allocate `o` at some point. To do so it will use an allocator, which has signature `alloc : state -> addr`. Note that I haven't said what `state` is, but let's assume it's a record containing at least the field `pc` for the current program counter. One simple strategy the machine could use is to allocate the object `o` based on the label it was created:
+
+    alloc(state) = state.pc
+
+This allocator will only ever use a finite number of addresses, because there are only a finite number of locations in the program. If `m` were to be invoked again, `m` would reuse the same location, join more stuff into that location, and eventually reach a fixed point. In this case I am also relying on the fact that the abstraction of the base types (integers) is finite. For example, I could pick a sign domain here and that would reach a fixed point.
+
+Note that this is a fairly coarse abstraction. It says "conflate every value that is allocated at the same program point, without any regard to the stack, etc..." This lacks any notion of context sensitivity, so values from different stacks will get merged. This doesn't really mean so much here because this program is pretty nonsensical. A better example would be this:
+
+let f x = (\g. x) (\x. x) in
+assert(f (-1) < 0);
+assert(f (+1) > 0);
+
+Using this allocator, and assuming we model integers with the sign domain, this allocator would result in saying that f (-1) could be both positive *and* negative, breakign the assertion. By the way, these examples with assertions are really helpful for me to understand how this stuff works.
+
+To recover concrete evaluation, you would keep adding more stuff into the heap. The way to do this is to have addresses be the natural numbers and to allocate based on the number of things in the heap (which emulates getting the next index in an arbitrarily long array):
+
+    alloc(state) = |state.store|
+
+Building abstract machines in AAM is all about playing around with this allocation function. By the way, the codomain of the allocation function defines the type of locations in the heap.
