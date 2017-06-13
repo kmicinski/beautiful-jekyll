@@ -46,7 +46,7 @@ This allocator will only ever use a finite number of addresses, because there ar
 
 Note that this is a fairly coarse abstraction. It says "conflate every value that is allocated at the same program point, without any regard to the stack, etc..." This lacks any notion of context sensitivity, so values from different stacks will get merged. This doesn't really mean so much here because this program is pretty nonsensical. A better example would be this:
 
-    let f x = (\g. x) (\x. x) in
+    let f x = (\g. g x) (\x. x) in
     assert(f (-1) < 0);
     assert(f (+1) > 0);
 
@@ -134,31 +134,17 @@ The big reveal in P4F is that you need only pay attention to two things when you
 - The target control expression (or program counter / method name)
 - The environemnt passed to the invocation
 
-Why these two things are sufficient to get call--return precision is totally unclear to me at first. It does not feel at all obvious to me why that should be the case. The top of page 8 deserves very careful rereading a few times. 
+Why these two things are sufficient to get call--return precision is totally unclear to me at first. It does not feel at all obvious to me why that should be the case. But here's what I think the right insight is: we're looking for something to key on that will uniquely determine a continuation.
 
-Tom provides this example:
+The most helpful idea in this part of the paper was the following: think about when it is possible to have return-flow merging in a finite-state analysis. This happens when you get to a return point configuration `(return v, rho, ak)`, and the address `ak` is less precise than the set of configurations that transitioned to the entry point at the beginning of the function.
 
-```
-  \                                               / 
-   \                                             / 
-    c0 --> c1 - - - > c2 --> c3 - - - > c4 --> c5 
-             \        ^        \        ^
-              \      /          \     / 
-                 f                 g 
-```
+For example, consider you have the same example over again:
 
-And he says: 
+    let f x = (\g. g x) (\x. x) in
+    assert(f (-1) < 0);
+    assert(f (+1) > 0);
 
-> We call the set of configurations c0 through c5 an intraprocedural
-> group because they are those configurations that represent the
-> body of a function for a single abstract invocation—defined by an
-> entry point unique to some e and ρ˜. Our central insight is to notice
-> that this idea of an intraprocedural group also corresponds to those
-> configurations that share a single set of continuations. Our finite state
-> machine represents this set of continuations with a continuation
-> address, so if this continuation address is precise enough to
-> uniquely determine an intraprocedural group’s entry point (e and
-> ρ˜), then it can be used for all configurations in that same group.
+In a monovariant analysis, when you return to `g` from the body of `\x. x`, the first time we return -1 to that point, and the second time we return +1 to that point. 
 
 ## Terms
 - "administrative normal form"
