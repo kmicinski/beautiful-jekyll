@@ -122,6 +122,44 @@ I don't have a crisp explanation of this, except to pull a quote from the paper:
 
 Sets are unordered, so building up a set of `{a,b}` as a first then `b`, or `b` first then `a`, means you're wasting a lot of time (exponential when you could have polynomial). Store widening is way to combat this, by pulling the stores out of the states. Instead, it represents every state as a "configuration" (which is everything except a store) and then pairs it with a global store.
 
+#### PDCFA
+
+The first pushdown control flow analysis shown is PDCFA. This is the original---and complicated---version of pushdown analysis that uses a Dyck State Graph to represent a pushdown system. This part of the paper is a real slog. PDFCFA builds up a graph of vertices and labeled edges. Vertices are powersets of configurations (think states) and edges are labeled edges between configurations with either a push or a pop of a frame.
+
+Dyck State Graphs are constructed in a kind of roundabout way, by giving a propositional definition of what makes a DSG correct for an infinite stack machine. This is a little confusing, because you can't actually compute the infinte-stack machine. Still, it helps give the intuition about what a DSG is.
+
+## P4F
+
+The big reveal in P4F is that you need only pay attention to two things when you allocate a continuation address:
+- The target control expression (or program counter / method name)
+- The environemnt passed to the invocation
+
+Why these two things are sufficient to get call--return precision is totally unclear to me at first. It does not feel at all obvious to me why that should be the case. The top of page 8 deserves very careful rereading a few times. 
+
+Tom provides this example:
+
+```
+  \                                               / 
+   \                                             / 
+    c0 --> c1 - - - > c2 --> c3 - - - > c4 --> c5 
+             \        ^        \        ^
+              \      /          \     / 
+                 f                 g 
+```
+
+And he says: 
+
+> We call the set of configurations c0 through c5 an intraprocedural
+> group because they are those configurations that represent the
+> body of a function for a single abstract invocation—defined by an
+> entry point unique to some e and ρ˜. Our central insight is to notice
+> that this idea of an intraprocedural group also corresponds to those
+> configurations that share a single set of continuations. Our finite state
+> machine represents this set of continuations with a continuation
+> address, so if this continuation address is precise enough to
+> uniquely determine an intraprocedural group’s entry point (e and
+> ρ˜), then it can be used for all configurations in that same group.
+
 ## Terms
 - "administrative normal form"
 - "direct style" vs "continuation-passing style".
