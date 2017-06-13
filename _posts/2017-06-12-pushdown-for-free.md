@@ -52,7 +52,7 @@ Note that this is a fairly coarse abstraction. It says "conflate every value tha
     assert(f (-1) < 0);
     assert(f (+1) > 0);
 
-Using this allocator, and assuming we model integers with the sign domain, this allocator would result in saying that f (-1) could be both positive *and* negative, breakign the assertion. By the way, these examples with assertions are really helpful for me to understand how this stuff works.
+Using this allocator, and assuming we model integers with the sign domain, this allocator would result in saying that f (-1) could be both positive *and* negative, breaking the assertion. By the way, these examples with assertions are really helpful for me to understand how this stuff works.
 
 #### Concrete evaluation 
 
