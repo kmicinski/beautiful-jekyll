@@ -1,6 +1,5 @@
 ---
 title: Pushdown Control-Flow Analysis for Free
-date: 12-06-17
 tags:
  - scheme
  - "programming-languages"
