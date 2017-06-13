@@ -8,13 +8,15 @@ tags:
  - "control-flow-analysis"
 ---
 
-Today I'm summarizing the results of a paper I've read a few times: [Pushdown for Free](https://michaeldadams.org/papers/p4f/pushdown-for-free.pdf). This paper is one of a few in Tom Gilray's dissertation.
+Today I'm summarizing the results of a paper I've read a few times: [Pushdown for Free](https://michaeldadams.org/papers/p4f/pushdown-for-free.pdf). This paper is one of a few in Tom Gilray's dissertation. These notes are in very rough form and I'm sure I made some typos (or even outright logical errors) so feel free to correct me.
 
 This paper has a really nice and useful result, if you're used to writing abstract interpreters in the AAM style. It:
  - Gives perfect call-return ("pushdown") precision with of no greater (big-O) complexity than without.
  - Outlines a simple implementation strategy for doing so that uses off-the-shelf technology from AAM.
 
 This paper relies on understanding the story of [Abstracting Abstract Machines](http://matt.might.net/papers/vanhorn2010abstract.pdf). I think this paper is fairly simple to read if you understand that story, but if you don't I think it would be confusing. (Indeed, the first time I read this paper I was still first beginning to understand how AAM really worked).
+
+I think the core idea in this paper is a bit of a bait-and-switch: it looks so simple that it's easy to nod your head. The intuition for the core idea is interesting---and I think the authors did a good job at presenting it---but it's still very challenging. I would like to write up a more comprehensive post drawing some more elaborate diagrams and explaining the core idea in the paper, which the authors probably understood from having read a paper I did not (the "Abstracting Abstract Control" paper).
 
 # Notes
 
