@@ -134,7 +134,7 @@ The big reveal in P4F is that you need only pay attention to two things when you
 - The target control expression (or program counter / method name)
 - The environemnt passed to the invocation
 
-Why these two things are sufficient to get call--return precision is totally unclear to me at first. It does not feel at all obvious to me why that should be the case. But here's what I think the right insight is: we're looking for something to key on that will uniquely determine a continuation.
+Why these two things are sufficient to get call--return precision is totally unclear to me at first. It does not feel at all obvious to me why that should be the case.
 
 The most helpful idea in this part of the paper was the following: think about when it is possible to have return-flow merging in a finite-state analysis. This happens when you get to a return point configuration `(return v, rho, ak)`, and the address `ak` is less precise than the set of configurations that transitioned to the entry point at the beginning of the function.
 
@@ -144,8 +144,19 @@ For example, consider you have the same example over again:
     assert(f (-1) < 0);
     assert(f (+1) > 0);
 
-In a monovariant analysis, when you return to `g` from the body of `\x. x`, the first time we return -1 to that point, and the second time we return +1 to that point. 
+In a monovariant analysis, when you return to `g` from the body of `\x. x`, the first time we return -1 to that point, and the second time we return +1 to that point. We want to avoid this.
 
-## Terms
-- "administrative normal form"
-- "direct style" vs "continuation-passing style".
+### Things that confused me
+
+**I think this is the most important part of this post**.
+
+This quote is the crux of the paper.
+
+> The primary insight behind our technique is that a set of intraprocedural configurations (like c˜0 through c˜5) necessarily share the exact same set of genuine continuations (in this example, the incoming call-sites for c˜0)
+
+I really toiled over this for a long time. Why was this the case? I kept trying to think of counterexamples, and eventually pulled out some intuition?
+
+At first I wondered: what did it mean to share a set of genuine continuations? Doesn't any particular intraprocedural configuration just have one *unique* continuation? And then I realized that no, this was not the case. There are many potential places that you could flow back to, because we're in abstract interpretation land. This seems extremely subtle to me: P4F isn't trying to make each continution precisely unique, since that would be imposible. It's just trying to get the correct precision for call--return matching. For example, consider a program that recursively loops. It's not that P4F will keep a unique configuration for each invocation of a function as it calls itself arbitrarily many times. It will just ensure that---if that function is called somewhere *else*, it will not be conflated with the invocation.
+
+I also thought this: "but wait! I can easily imagine a case where I call `f` from `g`, and also from `h`, with the same environment, and expect different results." It turns out that no, I actually can't. Because in the pure lambda calculus those things will just be identified. However, once you add state things start to get trickier. I'm not quite sure how state interacts with higher order environments fully in this strategy, but I suspect it's complicated.
+
