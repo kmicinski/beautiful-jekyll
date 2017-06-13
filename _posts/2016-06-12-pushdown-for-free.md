@@ -1,6 +1,6 @@
 ---
 title: Pushdown Control-Flow Analysis for Free
-date: 06-12-17
+date: 12-06-17
 tags:
  - scheme
  - "programming-languages"
@@ -17,9 +17,7 @@ This paper has a really nice and useful result, if you're used to writing abstra
 
 This paper relies on understanding the story of [Abstracting Abstract Machines](http://matt.might.net/papers/vanhorn2010abstract.pdf). I think this paper is fairly simple to read if you understand that story, but if you don't I think it would be confusing. (Indeed, the first time I read this paper I was still first beginning to understand how AAM really worked).
 
-## A few important prerequisite facts from AAM
-
-A few important reminders about AAM this paper uses..
+# Notes
 
 #### Allocators
 
@@ -43,15 +41,15 @@ Just as a regular semantics for a programming language (like Java) will allocate
 
 If we ran this program in Java, it would run forever. Clearly, an abstract analyzer of this program should not run forever. Instead, it will begin to execute `m` and will allocate `o` at some point. To do so it will use an allocator, which has signature `alloc : state -> addr`. Note that I haven't said what `state` is, but let's assume it's a record containing at least the field `pc` for the current program counter. One simple strategy the machine could use is to allocate the object `o` based on the label it was created:
 
-    alloc(state) = state.pc
+    alloc(o, state) = state.pc
 
 This allocator will only ever use a finite number of addresses, because there are only a finite number of locations in the program. If `m` were to be invoked again, `m` would reuse the same location, join more stuff into that location, and eventually reach a fixed point. In this case I am also relying on the fact that the abstraction of the base types (integers) is finite. For example, I could pick a sign domain here and that would reach a fixed point.
 
 Note that this is a fairly coarse abstraction. It says "conflate every value that is allocated at the same program point, without any regard to the stack, etc..." This lacks any notion of context sensitivity, so values from different stacks will get merged. This doesn't really mean so much here because this program is pretty nonsensical. A better example would be this:
 
-let f x = (\g. x) (\x. x) in
-assert(f (-1) < 0);
-assert(f (+1) > 0);
+    let f x = (\g. x) (\x. x) in
+    assert(f (-1) < 0);
+    assert(f (+1) > 0);
 
 Using this allocator, and assuming we model integers with the sign domain, this allocator would result in saying that f (-1) could be both positive *and* negative, breakign the assertion. By the way, these examples with assertions are really helpful for me to understand how this stuff works.
 
@@ -59,7 +57,7 @@ Using this allocator, and assuming we model integers with the sign domain, this 
 
 To recover concrete evaluation, you would keep adding more stuff into the heap. The way to do this is to have addresses be the natural numbers and to allocate based on the number of things in the heap (which emulates getting the next index in an arbitrarily long array):
 
-    alloc(state) = |state.store|
+    alloc(o, state) = |state.store|
 
 Building abstract machines in AAM is all about playing around with this allocation function. By the way, the codomain of the allocation function defines the type of locations in the heap.
 
@@ -69,19 +67,21 @@ Our previous abstract interpretation example conflated calls and returns. For ex
 
 The crux of the issue is in identifying that we need to add more precision to continuations, but not values. In fact, we want *perfect* precision for continuations. This will happen through the tricky use of an allocation function I'll describe. The genius observation is that we can cook up a finite address to use for calls and returns such that we still get perfect call return precision. It's really surprising to me.
 
-# Notes
+#### Univariance / Monovariance / Polyvariance
 
-## Section 2
+These papers use some insular terms in ways that I don't think are fully explained. "Polyvariance" was an opaque term to me for a long time, and I really had no idea what it meant. But it's really just a super simple concept: how much precision do you give various things in your abstract interpretation. There are three terms that are used a bunch. They are all instances of the allocator framework given here.
 
-Section two introduces normal (concrete) evaluation of programs in ANF. ANF is a fairly straigtforward translation. I always think of it as bytecode. For example, in ANF:
+- "univariance" means that there is only ever *one* address that your allocator is given. This is confusing, because it basically means that everything in your allocator is going to be *supppper* imprecise. This term confused me because I thought to myself, "why would anyone want an allocator that did that!? What is its technical purpose." I think it's just one very simple instance used to explain things, but there are some potential applications of it. For exmaple, in other papers Tom notes this can be used for dead code eliminiation.
 
-    (x1 + x2) * (x1 - x3)
+- "monovariance" means that everthing gets allocated based on its name. For example, the allocator up above that allocates based on pc is a form of a univariant allocator. Actually that might not be quite right. I think the real "monovariant" allocator is just this:
 
-would be written as:
+    alloc(x,state) = x
 
-    let r1 = x1 + x2 in
-    let r2 = x1 - x3 in
-    r1 * r2
+This is strange to me. Because I might think to myself "but what if the program uses x twice in two different ways? Won't they be conflated!?" And the answer is that yes, they will. So I think monovariant allocators are by convention assumed to take a program point's label as well:
+
+     alloc(x^l, state) = l
+
+Tom notes to me that even alpha renaming variables does not solve the problem because of a subtle interaction with P4F's allocation strategy I describe below.
 
 #### Trick: allocate values and continuations separately
 
@@ -101,6 +101,27 @@ And continuations are allocated using a special continuation allocator:
 Frankly, I never would have thought of this, but it mirrors a trick I've seen used in this [excellent paper on object sensitivity](https://yanniss.github.io/typesens-popl11.pdf). There, they realize that you need to allocate for *objects* in a special way. Here, the authors realize you need to allocate *continuations* in a special way.
 
 (I've just said what the type of the allocator is, not what its implementation is yet.)
+
+#### Store Widening
+
+Global store widening is a trick that Tom tells me he uses a lot in these analyses. This trick threads a global store through an analysis. The problem is basically that the naïve analysis without global store widening ends up doing a bunch of redundant work that ends up getting merged together in the final solution. 
+
+I don't have a crisp explanation of this, except to pull a quote from the paper:
+
+> The crux of the issue is that, in exploring a naïve state-space
+> (where each state is specific to a whole store), we may explore both
+> sides of every diamond in the store lattices. All combinations of
+> possible bindings in a store may need to be explored, including
+> every alternate path up the store lattice. For example, along one
+> explored path we might extend an address a˜1 with clof1 before
+> extending it with clof2, and along another path we might add these
+> closures in the reverse order (i.e., clof2 before clof1). We might also
+> extend another address a˜2 with clof1 either before or after either
+> of these cases, and so forth. This potential for exponential blowup
+> is unavoidable without further widening or coarser structural
+> abstraction.
+
+Sets are unordered, so building up a set of `{a,b}` as a first then `b`, or `b` first then `a`, means you're wasting a lot of time (exponential when you could have polynomial). Store widening is way to combat this, by pulling the stores out of the states. Instead, it represents every state as a "configuration" (which is everything except a store) and then pairs it with a global store.
 
 ## Terms
 - "administrative normal form"
